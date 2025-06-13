@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  reactStrictMode: false, // Disable React Strict Mode to prevent WebContainer double-boot
   async headers() {
     return [
       {

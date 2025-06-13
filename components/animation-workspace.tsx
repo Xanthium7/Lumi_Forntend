@@ -25,6 +25,9 @@ import {
 } from "lucide-react";
 import type { AnimationProject, AnimationChunk } from "@/types/animation";
 
+import useWebContainer from "@/hooks/useWebcontainer";
+import { WebContainer } from "@webcontainer/api";
+
 interface ChatMessage {
   id: string;
   type: "user" | "assistant";
@@ -36,6 +39,13 @@ interface AnimationWorkspaceProps {
   project: AnimationProject;
   onBack: () => void;
 }
+const files = {
+  "app.py": {
+    file: {
+      contents: `print("Lesgooo this is wokring  🔥🔥")`,
+    },
+  },
+};
 
 export default function AnimationWorkspace({
   project,
@@ -74,23 +84,35 @@ export default function AnimationWorkspace({
     },
   ]);
 
+  const webcontainer = useWebContainer();
+  async function runPythonCode() {
+    if (!webcontainer) return;
+    const result = await webcontainer.spawn("python3", ["app.py"]);
+    result.output.pipeTo(
+      new WritableStream({ write: (data) => console.log(data) })
+    );
+  }
+
+  async function mountFiles() {
+    if (!webcontainer) return;
+    await webcontainer.mount(files);
+  }
+
+  useEffect(() => {
+    if (webcontainer) {
+      mountFiles();
+      console.log("WebContainer mounted with files: ", files);
+
+      runPythonCode();
+    }
+  }, [webcontainer, files]);
+
   useEffect(() => {
     // Simulate code generation
     const generateCode = async () => {
       setIsGenerating(true);
-      const codeFrames = [
-        "// Initializing animation framework...\nimport { Scene, Camera, Renderer } from 'manim';\n",
-        "// Setting up photosynthesis scene...\nconst scene = new Scene();\nconst chloroplast = new Chloroplast();\n",
-        "// Creating molecular animations...\nconst lightReaction = new LightDependentReaction();\nconst darkReaction = new CalvinCycle();\n",
-        "// Animating photon absorption...\nscene.add(lightReaction.animatePhotonAbsorption());\n",
-        "// Final assembly...\nscene.render({ duration: 30, fps: 60 });\nexport default scene;",
-      ];
 
-      for (let i = 0; i < codeFrames.length; i++) {
-        await new Promise((resolve) => setTimeout(resolve, 800));
-        setGeneratedCode(codeFrames.slice(0, i + 1).join("\n"));
-        setProgress(((i + 1) / codeFrames.length) * 100);
-      }
+      setGeneratedCode(files["app.py"].file.contents);
 
       setIsGenerating(false);
     };
