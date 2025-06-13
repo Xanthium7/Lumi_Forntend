@@ -42,7 +42,10 @@ interface AnimationWorkspaceProps {
 const files = {
   "app.py": {
     file: {
-      contents: `print("Lesgooo this is wokring  🔥🔥")`,
+      contents: `
+from manim import *
+print("Hello, Manim!")
+      `,
     },
   },
 };
@@ -84,35 +87,12 @@ export default function AnimationWorkspace({
     },
   ]);
 
-  const webcontainer = useWebContainer();
-  async function runPythonCode() {
-    if (!webcontainer) return;
-    const result = await webcontainer.spawn("python3", ["app.py"]);
-    result.output.pipeTo(
-      new WritableStream({ write: (data) => console.log(data) })
-    );
-  }
-
-  async function mountFiles() {
-    if (!webcontainer) return;
-    await webcontainer.mount(files);
-  }
-
-  useEffect(() => {
-    if (webcontainer) {
-      mountFiles();
-      console.log("WebContainer mounted with files: ", files);
-
-      runPythonCode();
-    }
-  }, [webcontainer, files]);
-
   useEffect(() => {
     // Simulate code generation
     const generateCode = async () => {
       setIsGenerating(true);
 
-      setGeneratedCode(files["app.py"].file.contents);
+      setGeneratedCode("some cool code");
 
       setIsGenerating(false);
     };
