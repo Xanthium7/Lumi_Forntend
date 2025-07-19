@@ -60,8 +60,9 @@ const config = {
         sm: "calc(var(--radius) - 4px)",
       },
       fontFamily: {
-        sans: ["var(--font-sans)"],
+        sans: ["var(--font-quicksand)", "var(--font-sans)"],
         heading: ["var(--font-heading)"],
+        quicksand: ["var(--font-quicksand)"],
       },
       keyframes: {
         "accordion-down": {
@@ -82,11 +83,34 @@ const config = {
             opacity: "0.5",
           },
         },
+        "brightness-flicker": {
+          "0%": {
+            filter:
+              "brightness(0) contrast(1.1) drop-shadow(0 0 4px rgba(139, 92, 246, 0.6)) drop-shadow(0 0 8px rgba(139, 92, 246, 0.4)) drop-shadow(0 0 12px rgba(139, 92, 246, 0.2))",
+          },
+          "25%": {
+            filter:
+              "brightness(2) contrast(1.1) drop-shadow(0 0 12px rgba(139, 92, 246, 1.0)) drop-shadow(0 0 24px rgba(139, 92, 246, 0.8)) drop-shadow(0 0 36px rgba(139, 92, 246, 0.6))",
+          },
+          "50%": {
+            filter:
+              "brightness(0) contrast(1.1) drop-shadow(0 0 4px rgba(139, 92, 246, 0.6)) drop-shadow(0 0 8px rgba(139, 92, 246, 0.4)) drop-shadow(0 0 12px rgba(139, 92, 246, 0.2))",
+          },
+          "75%": {
+            filter:
+              "brightness(0.8) contrast(1.1) drop-shadow(0 0 3px rgba(139, 92, 246, 0.5)) drop-shadow(0 0 6px rgba(139, 92, 246, 0.3)) drop-shadow(0 0 9px rgba(139, 92, 246, 0.1))",
+          },
+          "100%": {
+            filter:
+              "brightness(1.3) contrast(1.1) drop-shadow(0 0 4px rgba(139, 92, 246, 0.6)) drop-shadow(0 0 8px rgba(139, 92, 246, 0.4)) drop-shadow(0 0 12px rgba(139, 92, 246, 0.2))",
+          },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         glow: "glow 4s ease-in-out infinite",
+        "brightness-flicker": "brightness-flicker 0.8s ease-in-out",
       },
     },
   },

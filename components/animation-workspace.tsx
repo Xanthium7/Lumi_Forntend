@@ -64,6 +64,13 @@ export default function AnimationWorkspace({
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedCode, setGeneratedCode] = useState("");
   const [chatInput, setChatInput] = useState("");
+
+  // Form input states
+  const [animationTitle, setAnimationTitle] = useState(project.title);
+  const [animationPrompt, setAnimationPrompt] = useState(project.prompt);
+  const [duration, setDuration] = useState(30);
+  const [frameRate, setFrameRate] = useState("60");
+
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     {
       id: "1",
@@ -424,7 +431,8 @@ export default function AnimationWorkspace({
                           </label>
                           <input
                             type="text"
-                            value={currentProject.title}
+                            value={animationTitle}
+                            onChange={(e) => setAnimationTitle(e.target.value)}
                             className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white placeholder:text-white/40 focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
                             placeholder="Enter animation title..."
                           />
@@ -434,7 +442,8 @@ export default function AnimationWorkspace({
                             Description/Prompt
                           </label>
                           <Textarea
-                            value={currentProject.prompt}
+                            value={animationPrompt}
+                            onChange={(e) => setAnimationPrompt(e.target.value)}
                             className="w-full bg-white/5 border border-white/10 text-white placeholder:text-white/40 focus:border-violet-500 focus:ring-1 focus:ring-violet-500 min-h-[100px]"
                             placeholder="Describe what you want to animate..."
                           />
@@ -446,7 +455,10 @@ export default function AnimationWorkspace({
                             </label>
                             <input
                               type="number"
-                              defaultValue={30}
+                              value={duration}
+                              onChange={(e) =>
+                                setDuration(Number(e.target.value))
+                              }
                               className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
                             />
                           </div>
@@ -454,11 +466,13 @@ export default function AnimationWorkspace({
                             <label className="block text-sm font-medium text-white/80 mb-2">
                               Frame Rate (fps)
                             </label>
-                            <select className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white focus:border-violet-500 focus:ring-1 focus:ring-violet-500">
+                            <select
+                              value={frameRate}
+                              onChange={(e) => setFrameRate(e.target.value)}
+                              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
+                            >
                               <option value="30">30 fps</option>
-                              <option value="60" selected>
-                                60 fps
-                              </option>
+                              <option value="60">60 fps</option>
                               <option value="120">120 fps</option>
                             </select>
                           </div>
