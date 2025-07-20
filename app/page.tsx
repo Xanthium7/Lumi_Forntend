@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -18,12 +18,21 @@ import {
   Users,
   Lightbulb,
   ChevronRight,
+  CheckCircle,
+  XCircle,
+  Clock,
 } from "lucide-react";
 import AnimationWorkspace from "@/components/animation-workspace";
 import type { AnimationProject } from "@/types/animation";
 import BackgroundGrid from "@/components/background-grid";
 import { AnimatedGridPattern } from "@/components/magicui/animated-grid-pattern";
 import Image from "next/image";
+import {
+  checkServerHealth,
+  getVideoWithMusicUrl,
+  checkVideoExists,
+  listAvailableVideos,
+} from "@/actions/actions";
 
 export default function HomePage() {
   const [prompt, setPrompt] = useState("");
@@ -31,15 +40,39 @@ export default function HomePage() {
     null
   );
   const [isGenerating, setIsGenerating] = useState(false);
+  const [serverStatus, setServerStatus] = useState<
+    "checking" | "online" | "offline"
+  >("checking");
+  const [className, setClassName] = useState("");
+  const [fetchedVideoUrl, setFetchedVideoUrl] = useState<string | null>(null);
+  const [isFetchingVideo, setIsFetchingVideo] = useState(false);
+  const [availableVideos, setAvailableVideos] = useState<string[]>([]);
+  const [showAvailableVideos, setShowAvailableVideos] = useState(false);
+
+  // Check server health on component mount
+  useEffect(() => {
+    const checkServer = async () => {
+      try {
+        await checkServerHealth();
+        setServerStatus("online");
+      } catch (error) {
+        setServerStatus("offline");
+        console.error("Server health check failed:", error);
+      }
+    };
+
+    checkServer();
+    // Check server health every 30 seconds
+    const interval = setInterval(checkServer, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleGenerateAnimation = async () => {
     if (!prompt.trim()) return;
 
     setIsGenerating(true);
     try {
-      // Simulate API call to FastAPI backend
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
+      // Create a project object with the prompt
       const newProject: AnimationProject = {
         id: Date.now().toString(),
         title: "Educational Animation",
@@ -52,9 +85,61 @@ export default function HomePage() {
 
       setCurrentProject(newProject);
     } catch (error) {
-      console.error("Failed to generate animation:", error);
+      console.error("Failed to create animation project:", error);
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  const handleFetchVideo = async () => {
+    if (!className.trim()) return;
+
+    setIsFetchingVideo(true);
+    try {
+      console.log("Checking if video exists for class:", className.trim());
+
+      // First check if the video exists
+      const videoExists = await checkVideoExists(className.trim());
+      if (!videoExists) {
+        console.error("Video does not exist for class:", className.trim());
+        alert(
+          `Video not found for class "${className.trim()}". Please check the class name.`
+        );
+        setFetchedVideoUrl(null);
+        return;
+      }
+
+      console.log("Video exists, downloading and storing locally...");
+      const videoUrl = await getVideoWithMusicUrl(className.trim());
+      console.log("Video downloaded and available at:", videoUrl);
+      setFetchedVideoUrl(videoUrl);
+    } catch (error) {
+      console.error("Failed to download video:", error);
+      alert(
+        `Failed to download video: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
+      setFetchedVideoUrl(null);
+    } finally {
+      setIsFetchingVideo(false);
+    }
+  };
+
+  const handleListVideos = async () => {
+    try {
+      const response = await listAvailableVideos();
+      const videoClassNames = response.videos.map((video) => video.class_name);
+      setAvailableVideos(videoClassNames);
+      setShowAvailableVideos(true);
+      console.log("Available videos:", videoClassNames);
+    } catch (error) {
+      console.error("Failed to list videos:", error);
+      alert(
+        `Failed to list videos: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
     }
   };
 
@@ -94,6 +179,31 @@ export default function HomePage() {
                 }}
               />
             </div>
+            <Badge
+              variant="secondary"
+              className={`hidden sm:flex mr-4 ${
+                serverStatus === "online"
+                  ? "bg-green-500/20 text-green-400"
+                  : serverStatus === "offline"
+                  ? "bg-red-500/20 text-red-400"
+                  : "bg-yellow-500/20 text-yellow-400"
+              }`}
+            >
+              {serverStatus === "online" && (
+                <CheckCircle className="w-3 h-3 mr-1" />
+              )}
+              {serverStatus === "offline" && (
+                <XCircle className="w-3 h-3 mr-1" />
+              )}
+              {serverStatus === "checking" && (
+                <Clock className="w-3 h-3 mr-1" />
+              )}
+              {serverStatus === "online"
+                ? "Backend Online"
+                : serverStatus === "offline"
+                ? "Backend Offline"
+                : "Checking Backend"}
+            </Badge>
             <Badge
               variant="secondary"
               className="hidden sm:flex bg-white/5 text-white/80"
@@ -167,14 +277,21 @@ export default function HomePage() {
               />
               <Button
                 onClick={handleGenerateAnimation}
-                disabled={!prompt.trim() || isGenerating}
+                disabled={
+                  !prompt.trim() || isGenerating || serverStatus === "offline"
+                }
                 className="w-full bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-700 hover:to-fuchsia-700 text-white font-medium py-6"
                 size="lg"
               >
                 {isGenerating ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                    Generating Animation...
+                    Creating Project...
+                  </>
+                ) : serverStatus === "offline" ? (
+                  <>
+                    <XCircle className="w-4 h-4 mr-2" />
+                    Backend Offline
                   </>
                 ) : (
                   <>
@@ -183,6 +300,166 @@ export default function HomePage() {
                   </>
                 )}
               </Button>
+              {serverStatus === "offline" && (
+                <p className="text-red-400 text-sm mt-2 text-center">
+                  Please start the FastAPI backend on localhost:8000
+                </p>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Video Showcase Section */}
+          <Card className="max-w-2xl mx-auto glass-card mt-8">
+            <CardHeader>
+              <CardTitle className="text-left text-white">
+                Showcase Existing Animation
+              </CardTitle>
+              <CardDescription className="text-left text-white/60">
+                Enter a class name to fetch and preview an existing animation
+                with background music.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Enter class name (e.g., PhotosynthesisAnimation)"
+                  value={className}
+                  onChange={(e) => setClassName(e.target.value)}
+                  className="flex-1 px-3 py-2 rounded-md bg-white/5 border border-white/10 focus:border-violet-500 focus:ring-1 focus:ring-violet-500 text-white placeholder:text-white/40 outline-none"
+                />
+                <Button
+                  onClick={handleFetchVideo}
+                  disabled={
+                    !className.trim() ||
+                    isFetchingVideo ||
+                    serverStatus === "offline"
+                  }
+                  className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white px-6"
+                >
+                  {isFetchingVideo ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                      Downloading...
+                    </>
+                  ) : (
+                    <>
+                      <Play className="w-4 h-4 mr-2" />
+                      Download & Show Video
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              <div className="flex justify-center">
+                <Button
+                  onClick={handleListVideos}
+                  disabled={serverStatus === "offline"}
+                  variant="outline"
+                  size="sm"
+                  className="text-white/60 border-white/20 hover:bg-white/10"
+                >
+                  Show Available Videos
+                </Button>
+              </div>
+
+              {showAvailableVideos && availableVideos.length > 0 && (
+                <div className="mt-4 p-3 bg-white/5 rounded-lg border border-white/10">
+                  <p className="text-white/80 text-sm font-medium mb-2">
+                    Available Class Names:
+                  </p>
+                  <div className="grid grid-cols-1 gap-1 max-h-32 overflow-y-auto">
+                    {availableVideos.map((video, index) => (
+                      <button
+                        key={index}
+                        onClick={() => {
+                          setClassName(video);
+                          setShowAvailableVideos(false);
+                        }}
+                        className="text-left text-xs text-white/60 hover:text-white/80 hover:bg-white/5 p-1 rounded transition-colors"
+                      >
+                        {video}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {fetchedVideoUrl && (
+                <div className="mt-4">
+                  <div className="flex justify-between items-center mb-2">
+                    <p className="text-white/60 text-sm">
+                      Showing: {className} (downloaded locally with background
+                      music)
+                    </p>
+                    <Button
+                      onClick={() => {
+                        setFetchedVideoUrl(null);
+                        setClassName("");
+                      }}
+                      variant="outline"
+                      size="sm"
+                      className="text-white/60 border-white/20 hover:bg-white/10"
+                    >
+                      Clear
+                    </Button>
+                  </div>
+                  <div className="text-xs text-white/40 mb-2 font-mono">
+                    URL: {fetchedVideoUrl}
+                  </div>
+                  <div className="space-y-2">
+                    <div className="relative aspect-video rounded-xl overflow-hidden bg-white/5 backdrop-blur-sm border border-white/10">
+                      <video
+                        controls
+                        autoPlay
+                        muted
+                        className="w-full h-full object-cover"
+                        key={fetchedVideoUrl}
+                        onError={(e) => {
+                          console.error(
+                            "Video failed to load:",
+                            fetchedVideoUrl
+                          );
+                          console.error("Video error:", e);
+                        }}
+                        onLoadStart={() => console.log("Video loading started")}
+                        onLoadedData={() =>
+                          console.log("Video loaded successfully")
+                        }
+                      >
+                        <source src={fetchedVideoUrl} type="video/mp4" />
+                        Your browser does not support the video tag.
+                      </video>
+                    </div>
+                    <div className="flex gap-2 justify-center">
+                      <Button
+                        onClick={() => window.open(fetchedVideoUrl, "_blank")}
+                        variant="outline"
+                        size="sm"
+                        className="text-white/60 border-white/20 hover:bg-white/10"
+                      >
+                        Open in New Tab
+                      </Button>
+                      <Button
+                        onClick={() =>
+                          navigator.clipboard.writeText(fetchedVideoUrl)
+                        }
+                        variant="outline"
+                        size="sm"
+                        className="text-white/60 border-white/20 hover:bg-white/10"
+                      >
+                        Copy URL
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {serverStatus === "offline" && (
+                <p className="text-red-400 text-sm mt-2 text-center">
+                  Please start the FastAPI backend on localhost:8000
+                </p>
+              )}
             </CardContent>
           </Card>
         </div>

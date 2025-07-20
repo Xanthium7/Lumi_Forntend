@@ -15,6 +15,13 @@
 
 # next.js
 /.next/
+
+# Ignore downloaded videos
+*.mp4
+*.avi
+*.mov
+*.wmv
+
 /out/
 
 # production

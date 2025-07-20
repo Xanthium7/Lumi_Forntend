@@ -22,11 +22,21 @@ import {
   Send,
   User,
   Bot,
+  CheckCircle,
+  XCircle,
+  Clock,
 } from "lucide-react";
 import type { AnimationProject, AnimationChunk } from "@/types/animation";
+import {
+  generateAnimation,
+  getVideoUrl,
+  getLatestCode,
+  checkServerHealth,
+  getVideoWithMusicUrl,
+  checkVideoExists,
+} from "@/actions/actions";
 
 import useWebContainer from "@/hooks/useWebcontainer";
-import { WebContainer } from "@webcontainer/api";
 
 interface ChatMessage {
   id: string;
@@ -64,6 +74,15 @@ export default function AnimationWorkspace({
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedCode, setGeneratedCode] = useState("");
   const [chatInput, setChatInput] = useState("");
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [className, setClassName] = useState<string | null>(null);
+  const [serverStatus, setServerStatus] = useState<
+    "checking" | "online" | "offline"
+  >("checking");
+  const [apiResponse, setApiResponse] = useState<any>(null);
+  const [generationProgress, setGenerationProgress] = useState(0);
+  const [generationStep, setGenerationStep] = useState("");
+  const [isRetrying, setIsRetrying] = useState(false);
 
   // Form input states
   const [animationTitle, setAnimationTitle] = useState(project.title);
@@ -76,7 +95,7 @@ export default function AnimationWorkspace({
       id: "1",
       type: "assistant",
       content:
-        "Hi! I'm ready to help you create your educational animation. What would you like to visualize?",
+        "Hi! I'm ready to help you create your educational animation using Manim. What would you like to visualize?",
       timestamp: new Date(Date.now() - 300000),
     },
     {
@@ -89,23 +108,109 @@ export default function AnimationWorkspace({
       id: "3",
       type: "assistant",
       content:
-        "Great! I'm generating a detailed animation showing photosynthesis at the molecular level. This will include chloroplast structure, light reactions, and the Calvin cycle.",
+        "Great! I'm generating a detailed Manim animation based on your prompt. This will create professional mathematical visualizations.",
       timestamp: new Date(Date.now() - 120000),
     },
   ]);
 
+  // Check server health on component mount
   useEffect(() => {
-    // Simulate code generation
-    const generateCode = async () => {
-      setIsGenerating(true);
-
-      setGeneratedCode("some cool code");
-
-      setIsGenerating(false);
+    const checkServer = async () => {
+      try {
+        await checkServerHealth();
+        setServerStatus("online");
+      } catch (error) {
+        setServerStatus("offline");
+        console.log("Server health check failed:", error);
+      }
     };
 
-    generateCode();
+    checkServer();
   }, []);
+
+  useEffect(() => {
+    // Generate animation when component mounts
+    const generateAnimationCode = async () => {
+      if (serverStatus !== "online") return;
+
+      setIsGenerating(true);
+      setGenerationProgress(0);
+      setGenerationStep("Initializing...");
+
+      try {
+        // Simulate progress updates during generation
+        const progressInterval = setInterval(() => {
+          setGenerationProgress((prev) => {
+            const increment = Math.random() * 15 + 5; // Random increment between 5-20%
+            const newProgress = Math.min(prev + increment, 85); // Cap at 85% until completion
+
+            // Update step based on progress
+            if (newProgress < 20) {
+              setGenerationStep("Processing prompt...");
+            } else if (newProgress < 40) {
+              setGenerationStep("Generating Manim code...");
+            } else if (newProgress < 60) {
+              setGenerationStep("Optimizing animations...");
+            } else if (newProgress < 80) {
+              setGenerationStep("Rendering video...");
+            } else {
+              setGenerationStep("Finalizing...");
+            }
+
+            return newProgress;
+          });
+        }, 2000); // Update every 2 seconds
+
+        const response = await generateAnimation(currentProject.prompt);
+
+        // Clear progress interval and set to 100%
+        clearInterval(progressInterval);
+        setGenerationProgress(100);
+        setGenerationStep("Complete!");
+
+        setApiResponse(response);
+        setGeneratedCode(response.manim_code);
+        setClassName(response.class_name);
+
+        // Get video URL
+        const videoUrl = await getVideoUrl(response.class_name);
+        setVideoUrl(videoUrl);
+
+        // Add success message to chat
+        const successMessage: ChatMessage = {
+          id: Date.now().toString(),
+          type: "assistant",
+          content: `✅ Animation generated successfully! Class name: ${response.class_name}`,
+          timestamp: new Date(),
+        };
+        setChatMessages((prev) => [...prev, successMessage]);
+      } catch (error) {
+        console.log("Error generating animation:", error);
+        setGenerationProgress(0);
+        setGenerationStep("Error occurred");
+
+        // Add error message to chat
+        const errorMessage: ChatMessage = {
+          id: Date.now().toString(),
+          type: "assistant",
+          content: `❌ Error generating animation: ${
+            error instanceof Error ? error.message : "Unknown error"
+          }`,
+          timestamp: new Date(),
+        };
+        setChatMessages((prev) => [...prev, errorMessage]);
+      } finally {
+        setIsGenerating(false);
+        // Reset progress after a delay
+        setTimeout(() => {
+          setGenerationProgress(0);
+          setGenerationStep("");
+        }, 3000);
+      }
+    };
+
+    generateAnimationCode();
+  }, [currentProject.prompt, serverStatus]);
 
   const sendMessage = async () => {
     if (!chatInput.trim()) return;
@@ -118,19 +223,153 @@ export default function AnimationWorkspace({
     };
 
     setChatMessages((prev) => [...prev, userMessage]);
+    const currentInput = chatInput;
     setChatInput("");
 
-    // Simulate AI response
-    setTimeout(() => {
-      const assistantMessage: ChatMessage = {
-        id: (Date.now() + 1).toString(),
+    // Check if user wants to regenerate or modify the animation
+    const isRegenerateRequest =
+      currentInput.toLowerCase().includes("regenerate") ||
+      currentInput.toLowerCase().includes("modify") ||
+      currentInput.toLowerCase().includes("change");
+
+    if (isRegenerateRequest && serverStatus === "online") {
+      setIsGenerating(true);
+      setGenerationProgress(0);
+      setGenerationStep("Regenerating...");
+
+      try {
+        // Start progress simulation for regeneration
+        const progressInterval = setInterval(() => {
+          setGenerationProgress((prev) => {
+            const increment = Math.random() * 12 + 8; // Slightly faster for regeneration
+            const newProgress = Math.min(prev + increment, 85);
+
+            if (newProgress < 25) {
+              setGenerationStep("Processing new prompt...");
+            } else if (newProgress < 50) {
+              setGenerationStep("Updating Manim code...");
+            } else if (newProgress < 75) {
+              setGenerationStep("Re-rendering video...");
+            } else {
+              setGenerationStep("Almost done...");
+            }
+
+            return newProgress;
+          });
+        }, 1500); // Slightly faster updates for regeneration
+
+        // Use the new prompt for regeneration
+        const response = await generateAnimation(currentInput);
+
+        clearInterval(progressInterval);
+        setGenerationProgress(100);
+        setGenerationStep("Regeneration complete!");
+
+        setApiResponse(response);
+        setGeneratedCode(response.manim_code);
+        setClassName(response.class_name);
+
+        // Get new video URL
+        const videoUrl = await getVideoUrl(response.class_name);
+        setVideoUrl(videoUrl);
+
+        const successMessage: ChatMessage = {
+          id: (Date.now() + 1).toString(),
+          type: "assistant",
+          content: `✅ Animation regenerated successfully! New class: ${response.class_name}`,
+          timestamp: new Date(),
+        };
+        setChatMessages((prev) => [...prev, successMessage]);
+      } catch (error) {
+        setGenerationProgress(0);
+        setGenerationStep("Regeneration failed");
+
+        const errorMessage: ChatMessage = {
+          id: (Date.now() + 1).toString(),
+          type: "assistant",
+          content: `❌ Error regenerating animation: ${
+            error instanceof Error ? error.message : "Unknown error"
+          }`,
+          timestamp: new Date(),
+        };
+        setChatMessages((prev) => [...prev, errorMessage]);
+      } finally {
+        setIsGenerating(false);
+        setTimeout(() => {
+          setGenerationProgress(0);
+          setGenerationStep("");
+        }, 3000);
+      }
+    } else {
+      // Regular chat response
+      setTimeout(() => {
+        const assistantMessage: ChatMessage = {
+          id: (Date.now() + 1).toString(),
+          type: "assistant",
+          content:
+            serverStatus === "offline"
+              ? "❌ Server is offline. Please ensure the FastAPI backend is running on localhost:8000"
+              : "I understand your request. To modify the animation, please include 'regenerate' in your message with the new requirements.",
+          timestamp: new Date(),
+        };
+        setChatMessages((prev) => [...prev, assistantMessage]);
+      }, 1000);
+    }
+  };
+
+  const handleRetryVideoDownload = async () => {
+    if (!className || !apiResponse) {
+      console.warn("No class name or API response available for retry");
+      return;
+    }
+
+    setIsRetrying(true);
+    try {
+      console.log(`Retrying video download for class: ${className}`);
+
+      // Add retry message to chat
+      const retryMessage: ChatMessage = {
+        id: Date.now().toString(),
         type: "assistant",
-        content:
-          "I understand your request. Let me help you modify the animation accordingly.",
+        content: `🔄 Retrying video download for class: ${className}`,
         timestamp: new Date(),
       };
-      setChatMessages((prev) => [...prev, assistantMessage]);
-    }, 1000);
+      setChatMessages((prev) => [...prev, retryMessage]);
+
+      // First check if the video exists
+      const videoExists = await checkVideoExists(className);
+      if (!videoExists) {
+        throw new Error(`Video not found for class: ${className}`);
+      }
+
+      // Attempt to download the video again
+      const videoUrl = await getVideoWithMusicUrl(className);
+      setVideoUrl(videoUrl);
+
+      // Add success message to chat
+      const successMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        type: "assistant",
+        content: `✅ Video download successful! Class: ${className}`,
+        timestamp: new Date(),
+      };
+      setChatMessages((prev) => [...prev, successMessage]);
+    } catch (error) {
+      console.log("Error during video retry:", error);
+
+      // Add error message to chat
+      const errorMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        type: "assistant",
+        content: `❌ Video download failed again: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }. Please check if the FastAPI backend is running.`,
+        timestamp: new Date(),
+      };
+      setChatMessages((prev) => [...prev, errorMessage]);
+    } finally {
+      setIsRetrying(false);
+    }
   };
 
   return (
@@ -157,6 +396,27 @@ export default function AnimationWorkspace({
 
         <div className="flex items-center space-x-2">
           <Badge
+            variant={serverStatus === "online" ? "default" : "secondary"}
+            className={
+              serverStatus === "online"
+                ? "bg-green-500/20 text-green-400"
+                : serverStatus === "offline"
+                ? "bg-red-500/20 text-red-400"
+                : "bg-yellow-500/20 text-yellow-400"
+            }
+          >
+            {serverStatus === "online" && (
+              <CheckCircle className="w-3 h-3 mr-1" />
+            )}
+            {serverStatus === "offline" && <XCircle className="w-3 h-3 mr-1" />}
+            {serverStatus === "checking" && <Clock className="w-3 h-3 mr-1" />}
+            {serverStatus === "online"
+              ? "Server Online"
+              : serverStatus === "offline"
+              ? "Server Offline"
+              : "Checking Server"}
+          </Badge>
+          <Badge
             variant={isGenerating ? "secondary" : "default"}
             className={
               isGenerating
@@ -173,7 +433,19 @@ export default function AnimationWorkspace({
           >
             <Settings className="w-4 h-4" />
           </Button>
-          <Button size="sm" className="bg-white text-black hover:bg-white/90">
+          <Button
+            size="sm"
+            className="bg-white text-black hover:bg-white/90"
+            disabled={!videoUrl}
+            onClick={() => {
+              if (videoUrl) {
+                const link = document.createElement("a");
+                link.href = videoUrl;
+                link.download = `${className || "animation"}.mp4`;
+                link.click();
+              }
+            }}
+          >
             <Download className="w-4 h-4 mr-2" />
             Export
           </Button>
@@ -318,38 +590,72 @@ export default function AnimationWorkspace({
                   <div className="w-full h-full max-w-4xl max-h-[80%] bg-black/60 rounded-lg border border-white/10 flex items-center justify-center m-4">
                     {isGenerating ? (
                       <div className="text-center text-white">
-                        <div className="w-16 h-16 border-4 border-violet-400 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-                        <p className="text-lg font-medium">
+                        <div className="w-16 h-16 border-4 border-violet-400 border-t-transparent rounded-full animate-spin mx-auto mb-6" />
+                        <p className="text-lg font-medium mb-2">
                           Generating Animation
                         </p>
-                        <p className="text-sm opacity-60">
-                          Creating your educational visualization...
+                        <p className="text-sm opacity-60 mb-6">
+                          {generationStep ||
+                            "Creating your Manim visualization..."}
                         </p>
-                        <div className="mt-4 w-64 mx-auto">
-                          <Progress value={progress} className="h-2" />
+
+                        {/* Progress Bar */}
+                        <div className="w-80 mx-auto">
+                          <div className="flex justify-between text-xs text-white/60 mb-2">
+                            <span>Progress</span>
+                            <span>{Math.round(generationProgress)}%</span>
+                          </div>
+                          <Progress
+                            value={generationProgress}
+                            className="h-2 bg-white/10"
+                          />
+                          <p className="text-xs text-white/40 mt-2">
+                            This may take 5-10 minutes depending on complexity
+                          </p>
                         </div>
+                      </div>
+                    ) : videoUrl ? (
+                      <div className="w-full h-full p-4">
+                        <video
+                          src={videoUrl}
+                          controls
+                          autoPlay
+                          loop
+                          className="w-full h-full object-contain rounded-lg"
+                          onError={(e) => {
+                            console.log("Video load error:", e);
+                            // Fallback to show error message
+                          }}
+                        />
+                        {apiResponse && (
+                          <div className="mt-4 p-3 bg-white/5 rounded-lg">
+                            <p className="text-white text-sm">
+                              <span className="font-medium">Class:</span>{" "}
+                              {apiResponse.class_name}
+                            </p>
+                            <p className="text-white/70 text-xs mt-1">
+                              Video generated successfully from your prompt
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    ) : serverStatus === "offline" ? (
+                      <div className="text-center text-white">
+                        <XCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />
+                        <p className="text-lg font-medium">Server Offline</p>
+                        <p className="text-sm opacity-60">
+                          Please start the FastAPI backend on localhost:8000
+                        </p>
                       </div>
                     ) : (
                       <div className="text-center text-white">
-                        <Play className="w-20 h-20 mx-auto mb-4 opacity-60" />
-                        <p className="text-xl font-medium mb-2">
-                          Animation Ready
+                        <Play className="w-16 h-16 text-white/40 mx-auto mb-4" />
+                        <p className="text-lg font-medium">
+                          No Animation Generated
                         </p>
-                        <p className="text-sm opacity-60 mb-6">
-                          Your educational animation has been generated
+                        <p className="text-sm opacity-60">
+                          Waiting for animation generation...
                         </p>
-                        <Button
-                          size="lg"
-                          onClick={() => setIsPlaying(!isPlaying)}
-                          className="bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-700 hover:to-fuchsia-700"
-                        >
-                          {isPlaying ? (
-                            <Pause className="w-5 h-5 mr-2" />
-                          ) : (
-                            <Play className="w-5 h-5 mr-2" />
-                          )}
-                          {isPlaying ? "Pause" : "Play Animation"}
-                        </Button>
                       </div>
                     )}
                   </div>
@@ -358,16 +664,43 @@ export default function AnimationWorkspace({
                 {/* Controls Bar */}
                 <div className="h-16 bg-black/40 border-t border-white/10 flex items-center justify-center px-4">
                   <div className="flex items-center space-x-4">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="border-white/20 text-white/80 hover:bg-white/10"
-                    >
-                      <RefreshCw className="w-4 h-4 mr-2" />
-                      Regenerate
-                    </Button>
+                    {/* Show retry button when we have a class name (whether video loaded or not) */}
+                    {className && apiResponse ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="border-orange-500/30 text-orange-400 hover:bg-orange-500/20"
+                        disabled={isRetrying || isGenerating}
+                        onClick={handleRetryVideoDownload}
+                      >
+                        <RefreshCw
+                          className={`w-4 h-4 mr-2 ${
+                            isRetrying ? "animate-spin" : ""
+                          }`}
+                        />
+                        {isRetrying
+                          ? "Retrying Video Download..."
+                          : "Retry Video Download"}
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="border-white/20 text-white/80 hover:bg-white/10"
+                        disabled={true}
+                      >
+                        <RefreshCw className="w-4 h-4 mr-2" />
+                        Waiting for Animation...
+                      </Button>
+                    )}
                     <div className="text-sm text-white/60">
-                      Duration: 30s • Resolution: 1920x1080 • 60fps
+                      {isGenerating
+                        ? `${generationStep} (${Math.round(
+                            generationProgress
+                          )}%)`
+                        : apiResponse
+                        ? `Class: ${apiResponse.class_name}`
+                        : "No animation generated"}
                     </div>
                   </div>
                 </div>
@@ -376,38 +709,81 @@ export default function AnimationWorkspace({
               <div className="h-full flex flex-col">
                 {/* Code Editor */}
                 <div className="flex-1 bg-[#0d1117] font-mono text-sm overflow-auto">
-                  <div className="p-4">
-                    <pre className="text-gray-300 leading-relaxed">
-                      <code>
-                        {generatedCode ||
-                          "// Code will appear here as it's generated..."}
-                      </code>
-                    </pre>
-                    {isGenerating && (
-                      <div className="inline-block w-2 h-5 bg-violet-400 animate-pulse ml-1" />
-                    )}
-                  </div>
+                  {isGenerating ? (
+                    <div className="h-full flex items-center justify-center">
+                      <div className="text-center text-white max-w-md">
+                        <div className="w-12 h-12 border-4 border-violet-400 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+                        <p className="text-lg font-medium mb-2">
+                          Generating Manim Code
+                        </p>
+                        <p className="text-sm opacity-60 mb-6">
+                          {generationStep || "Creating your animation code..."}
+                        </p>
+
+                        {/* Progress Bar for Code Tab */}
+                        <div className="w-72 mx-auto">
+                          <div className="flex justify-between text-xs text-white/60 mb-2">
+                            <span>Code Generation</span>
+                            <span>{Math.round(generationProgress)}%</span>
+                          </div>
+                          <Progress
+                            value={generationProgress}
+                            className="h-2 bg-white/10"
+                          />
+                          <p className="text-xs text-white/40 mt-2">
+                            Generating optimized Manim code...
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-4">
+                      <pre className="text-gray-300 leading-relaxed">
+                        <code>
+                          {generatedCode ||
+                            "# Manim code will appear here after generation...\n# Waiting for animation generation..."}
+                        </code>
+                      </pre>
+                    </div>
+                  )}
                 </div>
 
                 {/* Code Actions */}
                 <div className="h-14 bg-black/40 border-t border-white/10 flex items-center justify-between px-4">
                   <div className="text-sm text-white/60">
-                    Generated using Manim Community Edition
+                    {isGenerating
+                      ? `${generationStep || "Generating"} - ${Math.round(
+                          generationProgress
+                        )}% complete`
+                      : apiResponse
+                      ? `Generated code for ${apiResponse.class_name}`
+                      : "Generated using Manim Community Edition"}
                   </div>
                   <div className="flex items-center space-x-2">
                     <Button
                       variant="outline"
                       size="sm"
                       className="border-white/20 text-white/80 hover:bg-white/10"
+                      onClick={() => {
+                        if (generatedCode) {
+                          navigator.clipboard.writeText(generatedCode);
+                        }
+                      }}
+                      disabled={!generatedCode || isGenerating}
                     >
                       Copy Code
                     </Button>
                     <Button
                       size="sm"
                       className="bg-green-600 hover:bg-green-700 text-white"
+                      disabled={isGenerating || !generatedCode}
+                      onClick={() => {
+                        // Switch to preview tab to see the result
+                        setActiveTab("preview");
+                      }}
                     >
-                      <Play className="w-4 h-4 mr-2" />
-                      Run Code
+                      <Eye className="w-4 h-4 mr-2" />
+                      View Result
                     </Button>
                   </div>
                 </div>
