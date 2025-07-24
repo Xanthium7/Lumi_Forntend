@@ -1,5 +1,6 @@
 "use client";
 import { SignUp } from "@clerk/nextjs";
+import Image from "next/image";
 import Link from "next/link";
 
 export default function Page() {
@@ -22,18 +23,31 @@ export default function Page() {
         <div
           className="w-full bg-cover bg-center bg-gray-900"
           style={{
-            backgroundImage: "url('/bg.gif')",
+            backgroundImage: "url('/bg.jpeg')",
           }}
         >
           {/* Black opacity overlay */}
-          <div className="absolute inset-0 bg-black bg-opacity-30"></div>
+          <div className="absolute inset-0 bg-black opacity-60"></div>
 
           {/* Centered welcome text */}
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="text-white text-center">
-              <h1 className="text-5xl font-bold mb-4">Join CHILL-VERSE</h1>
+              <div className="flex justify-center items-center">
+                <h1 className="text-5xl">Welcome to</h1>
+                <Image
+                  src="/lumi.png"
+                  alt="Lumi Logo"
+                  width={200}
+                  height={140}
+                  className=""
+                  style={{
+                    filter:
+                      "brightness(1) contrast(1.1) drop-shadow(0 0 4px rgba(236, 0, 110, 0.6)) drop-shadow(0 0 8px rgba(71, 1, 235, 0.4)) drop-shadow(0 0 12px rgba(139, 92, 246, 0.2))",
+                  }}
+                />
+              </div>
               <p className="text-xl opacity-90">
-                Create memories in our virtual world
+                Create and explore AI-powered educational animations
               </p>
             </div>
           </div>
@@ -43,38 +57,39 @@ export default function Page() {
       <div className="w-full lg:w-1/2 bg-[#161616] flex items-center justify-center p-8">
         <div className="w-full max-w-md">
           {/* Custom Header */}
-          <div className="text-center mb-8">
-            <h2 className="text-4xl font-bold text-white mb-3">
-              Create an account
+          <div className="text-center ">
+            <h2 className="text-4xl font-medium text-white mb-3">
+              Sign Up to Lumi
             </h2>
-            <p className="text-gray-400 mb-6">
-              Join us and start your adventure
+            <p className="text-gray-400 ">
+              Hello There! Please Make an account to continue
             </p>
-
-            {/* Sign in link */}
+            {/* Sign up link */}
             <p className="text-gray-400">
               Already have an account?{" "}
               <Link
                 href="/sign-in"
                 className="text-purple-400 hover:text-purple-300 underline font-semibold"
               >
-                Sign in
+                Login
               </Link>
-            </p>
-          </div>{" "}
+            </p>{" "}
+          </div>
           {/* Modern Card Container */}
-          <div className="bg-gray-800/30 backdrop-blur-sm border border-gray-700/30 rounded-2xl p-8 shadow-2xl">
+          <div className=" backdrop-blur-sm  rounded-2xl p-2 ">
             <div className="flex justify-center">
               <SignUp
                 appearance={{
                   elements: {
-                    rootBox: "w-full flex justify-center",
+                    rootBox:
+                      "w-full flex justify-center border rounded-lg mt-4 shadow-2xl ",
                     card: "bg-[#161616] shadow-none border-none w-full",
                     headerTitle: "hidden", // Hide default title since we have custom
                     headerSubtitle: "hidden", // Hide default subtitle
                     dividerLine: "bg-gray-600",
                     dividerText: "text-gray-400",
                     formFieldLabel: "text-gray-300 font-medium mb-2",
+
                     formFieldInput:
                       "bg-gray-700/50 border-gray-600 text-white placeholder-gray-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 rounded-xl px-4 py-3 transition-all duration-200 backdrop-blur-sm",
                     formButtonPrimary:
