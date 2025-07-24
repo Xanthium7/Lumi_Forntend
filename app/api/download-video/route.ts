@@ -22,11 +22,20 @@ export async function POST(request: NextRequest) {
       await mkdir(videosDir, { recursive: true });
     }
 
-    // Generate a unique filename
-    const timestamp = Date.now();
-    const filename = `${className}_${timestamp}.mp4`;
+    // Use className.mp4 as filename
+    const filename = `${className}.mp4`;
     const filePath = path.join(videosDir, filename);
     const publicPath = `/videos/${filename}`;
+
+    // If file already exists, delete it
+    if (existsSync(filePath)) {
+      try {
+        await import("fs").then((fs) => fs.promises.unlink(filePath));
+        console.log(`Deleted existing file: ${filePath}`);
+      } catch (deleteError) {
+        console.log(`Failed to delete existing file: ${filePath}`, deleteError);
+      }
+    }
 
     // Download video from FastAPI backend
     const fastApiUrl = `http://localhost:8000/video/${className}`;
