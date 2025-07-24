@@ -57,7 +57,7 @@ export default function HomePage() {
         setServerStatus("online");
       } catch (error) {
         setServerStatus("offline");
-        console.error("Server health check failed:", error);
+        console.log("Server health check failed:", error);
       }
     };
 
