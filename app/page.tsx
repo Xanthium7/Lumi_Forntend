@@ -33,6 +33,7 @@ import {
   checkVideoExists,
   listAvailableVideos,
 } from "@/actions/actions";
+import { useAuth } from "@clerk/nextjs";
 
 export default function HomePage() {
   const [prompt, setPrompt] = useState("");
@@ -66,8 +67,15 @@ export default function HomePage() {
     const interval = setInterval(checkServer, 30000);
     return () => clearInterval(interval);
   }, []);
+  const { isLoaded, isSignedIn, userId, sessionId, getToken } = useAuth();
 
   const handleGenerateAnimation = async () => {
+    if (!isLoaded || !isSignedIn) {
+      // Redirect to /sign-in if not authenticated
+      window.location.href = "/sign-in";
+      return;
+    }
+
     if (!prompt.trim()) return;
 
     setIsGenerating(true);

@@ -7,6 +7,14 @@ import {
 } from "next/font/google";
 import { cn } from "@/lib/utils";
 import { ThemeProvider } from "@/components/theme-provider";
+import {
+  ClerkProvider,
+  SignInButton,
+  SignUpButton,
+  SignedIn,
+  SignedOut,
+  UserButton,
+} from "@clerk/nextjs";
 
 const fontSans = FontSans({
   subsets: ["latin"],
@@ -36,19 +44,21 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="dark" suppressHydrationWarning>
-      <body
-        className={cn("min-h-screen bg-background font-sans antialiased")}
-        style={{ fontFamily: fontQuicksand.style.fontFamily }}
-      >
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="dark"
-          enableSystem={false}
+    <ClerkProvider>
+      <html lang="en" className="dark" suppressHydrationWarning>
+        <body
+          className={cn("min-h-screen bg-background font-sans antialiased")}
+          style={{ fontFamily: fontQuicksand.style.fontFamily }}
         >
-          {children}
-        </ThemeProvider>
-      </body>
-    </html>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="dark"
+            enableSystem={false}
+          >
+            {children}
+          </ThemeProvider>
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }
